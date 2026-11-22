@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>FreshCart Grocery</title>
+
+  <!-- Fonts & Libraries -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Poppins:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+
+  <style>
+    :root {
+      --brand: #16a34a;
+      --brand-dark: #15803d;
+      --ink: #111827;
+    }
+    body{
+      font-family: "Poppins","Inter",system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial,"Noto Sans",sans-serif;
+      overflow-x: hidden;
+      /* animated gradient */
+      background: linear-gradient(270deg,#f0fdf4,#dbeafe,#fef9c3,#f0fdf4);
+      background-size: 600% 600%;
+      animation: gradientShift 18s ease infinite;
+    }
+    @keyframes gradientShift{
+      0%{background-position:0% 50%}
+      50%{background-position:100% 50%}
+      100%{background-position:0% 50%}
+    }
+
+    /* steps */
+    .step{display:none}
+    .step.active{display:block}
+
+    /* Floating bubbles */
+    .bubbles{position:fixed;inset:0;z-index:-1;overflow:hidden}
+    .bubble{position:absolute;bottom:-100px;background:rgba(16,185,129,.25);border-radius:50%;animation:rise 25s infinite ease-in}
+    @keyframes rise{0%{transform:translateY(0) scale(1);opacity:1}100%{transform:translateY(-1200px) scale(.5);opacity:0}}
+
+    /* Progress */
+    .progress-container{position:relative;width:100%;margin:24px auto 36px}
+    .progress-bar{position:absolute;top:50%;left:0;height:4px;background:#e5e7eb;width:100%;transform:translateY(-50%);z-index:0;border-radius:9999px}
+    .progress-bar-fill{position:absolute;top:50%;left:0;height:4px;background:var(--brand);width:0%;transform:translateY(-50%);z-index:0;transition:width .6s ease;border-radius:9999px}
+    .progress-steps{display:flex;justify-content:space-between;position:relative;z-index:1}
+    .progress-step{display:flex;flex-direction:column;align-items:center;flex:1}
+    .progress-circle{width:42px;height:42px;border-radius:50%;background:#d1d5db;display:flex;justify-content:center;align-items:center;font-weight:700;color:white;transition:background .3s}
+    .progress-circle.active,.progress-circle.completed{background:var(--brand)}
+    .progress-label{margin-top:8px;font-size:.9rem;font-weight:600;color:#374151}
+    .progress-label.active{color:var(--brand)}
+
+    /* Product card flair */
+    .card{background:white;border-radius:1rem;padding:1.1rem;box-shadow:0 10px 20px rgba(0,0,0,.06);transition:transform .25s, box-shadow .25s}
+    .card:hover{transform:translateY(-4px) scale(1.02);box-shadow:0 16px 32px rgba(0,0,0,.12)}
+    .price{color:var(--brand);text-shadow:0 2px 6px rgba(22,163,74,.18)}
+  </style>
+</head>
+<body>
+
+  <!-- background bubbles -->
+  <div class="bubbles"></div>
+
+  <!-- Floating Cart Button -->
+  <button id="cart-btn" class="fixed top-4 right-4 bg-green-600 text-white p-3 rounded-full shadow-lg hover:bg-green-700 transition transform hover:scale-110 z-50">
+    🛒 <span id="cart-count" class="bg-red-500 text-xs px-2 py-0.5 rounded-full absolute -top-1 -right-1">0</span>
+  </button>
+
+  <!-- Side Cart -->
+  <div id="cart-panel" class="fixed top-0 right-0 w-80 h-full bg-white shadow-2xl transform translate-x-full transition-transform duration-500 ease-in-out z-50 flex flex-col">
+    <div class="flex justify-between items-center p-4 border-b">
+      <h2 class="text-xl font-bold">Your Cart</h2>
+      <button id="close-cart" class="text-gray-500 hover:text-red-600 text-2xl">&times;</button>
+    </div>
+    <div id="cart-items-panel" class="flex-1 overflow-y-auto p-4 space-y-3"></div>
+    <div class="p-4 border-t bg-gray-50">
+      <p class="text-sm text-gray-600">Subtotal: <span id="cart-subtotal-panel">₹0.00</span></p>
+      <p class="text-sm text-gray-600">GST (18%): <span id="cart-gst-panel">₹0.00</span></p>
+      <p class="text-lg font-bold text-green-700">Total: <span id="cart-total-panel">₹0.00</span></p>
+      <button onclick="goToStep(2); closeCart();" class="mt-3 w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg shadow">Checkout →</button>
+    </div>
+  </div>
+  <div id="cart-overlay" class="fixed inset-0 bg-black bg-opacity-50 hidden z-40"></div>
+
+  <!-- Main container -->
+  <div class="max-w-6xl mx-auto p-6 relative z-10">
+
+    <!-- Header -->
+    <h1 class="text-4xl md:text-5xl font-extrabold text-green-600 text-center mb-4 animate__animated animate__bounce">FreshCart 🛒</h1>
+    <p class="text-center text-gray-700 mb-6">Fresh picks, great prices — delivered fast.</p>
+
+    <!-- Progress -->
+    <div class="progress-container">
+      <div class="progress-bar"></div>
+      <div id="progress-fill" class="progress-bar-fill"></div>
+      <div class="progress-steps">
+        <div class="progress-step"><div id="circle1" class="progress-circle active">1</div><div id="label1" class="progress-label active">Products</div></div>
+        <div class="progress-step"><div id="circle2" class="progress-circle">2</div><div id="label2" class="progress-label">Details</div></div>
+        <div class="progress-step"><div id="circle3" class="progress-circle">3</div><div id="label3" class="progress-label">Confirm</div></div>
+        <div class="progress-step"><div id="circle4" class="progress-circle">4</div><div id="label4" class="progress-label">Success</div></div>
+      </div>
+    </div>
+
+    <!-- STEP 1 -->
+    <section id="step1" class="step active animate__animated animate__fadeIn">
+      <h2 class="text-2xl font-bold text-gray-800 mb-4">Our Products</h2>
+      <div id="products-section" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+      <div class="text-right mt-6">
+        <button onclick="guardToDetails()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg shadow animate__animated animate__pulse animate__infinite">Next →</button>
+      </div>
+    </section>
+
+    <!-- STEP 2 -->
+    <section id="step2" class="step animate__animated animate__fadeInRight">
+      <h2 class="text-2xl font-bold text-gray-800 mb-4">Your Details</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="bg-blue-50 p-6 rounded-lg shadow animate__animated animate__fadeInLeft">
+          <label class="block text-gray-700 mb-2">Full Name</label>
+          <input type="text" id="customer-name" class="w-full border rounded px-3 py-2 mb-4">
+          <label class="block text-gray-700 mb-2">Delivery Address</label>
+          <textarea id="customer-address" rows="3" class="w-full border rounded px-3 py-2 mb-4"></textarea>
+          <label class="block text-gray-700 mb-2">Phone Number (+91...)</label>
+          <input type="tel" id="customer-phone" class="w-full border rounded px-3 py-2">
+        </div>
+        <div class="bg-purple-50 p-6 rounded-lg shadow animate__animated animate__fadeInRight">
+          <h3 class="text-xl font-semibold mb-4">Payment Methods</h3>
+          <ul class="list-disc list-inside text-gray-600 space-y-2">
+            <li>Cash on Delivery (COD)</li>
+            <li>UPI (Google Pay, PhonePe, Paytm)</li>
+            <li>Credit/Debit Card</li>
+            <li>Net Banking</li>
+          </ul>
+        </div>
+      </div>
+      <div class="flex justify-between mt-6">
+        <button onclick="goToStep(1)" class="bg-gray-400 hover:bg-gray-500 text-white px-6 py-3 rounded-lg shadow">← Back</button>
+        <button onclick="goToStep(3)" class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg shadow animate__animated animate__pulse animate__infinite">Next →</button>
+      </div>
+    </section>
+
+    <!-- STEP 3 -->
+    <section id="step3" class="step animate__animated animate__fadeInUp">
+      <h2 class="text-2xl font-bold text-gray-800 mb-4">Confirm & Send</h2>
+      <div id="order-summary" class="space-y-3 mb-4"></div>
+      <div class="bg-white rounded-lg p-4 shadow mb-6">
+        <p class="text-sm text-gray-600">Subtotal: <span id="sum-subtotal">₹0.00</span></p>
+        <p class="text-sm text-gray-600">GST (18%): <span id="sum-gst">₹0.00</span></p>
+        <p class="text-lg font-bold text-green-700">Total: <span id="sum-total">₹0.00</span></p>
+      </div>
+      <div class="flex justify-between">
+        <button onclick="goToStep(2)" class="bg-gray-400 hover:bg-gray-500 text-white px-6 py-3 rounded-lg shadow">← Back</button>
+        <button id="place-order-btn" class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg shadow animate__animated animate__pulse animate__infinite">Send Order via WhatsApp</button>
+      </div>
+    </section>
+
+    <!-- STEP 4 -->
+    <section id="step4" class="step text-center animate__animated animate__zoomIn">
+      <h2 class="text-3xl font-extrabold text-green-600 mb-4">🎉 Order Sent!</h2>
+      <p class="text-lg text-gray-700 mb-6">Thank you <span id="success-name"></span>, your order has been successfully sent via WhatsApp. We’ll contact you soon!</p>
+      <button onclick="goToStep(1)" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg shadow">🛒 Place Another Order</button>
+    </section>
+
+  </div>
+
+  <!-- Confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+  <script>
+    // Bubbles
+    function createBubbles(){
+      const container=document.querySelector('.bubbles');
+      for(let i=0;i<20;i++){
+        const b=document.createElement('div');
+        const size=Math.random()*60+20;
+        b.classList.add('bubble');
+        b.style.width=`${size}px`; b.style.height=`${size}px`;
+        b.style.left=`${Math.random()*100}%`;
+        b.style.background=`rgba(${100+Math.random()*100},${150+Math.random()*100},${200+Math.random()*55},0.28)`;
+        b.style.animationDuration=`${15+Math.random()*10}s`;
+        container.appendChild(b);
+      }
+    }
+    createBubbles();
+
+    // Steps
+    const steps=[...document.querySelectorAll('.step')];
+    const circles=[document.getElementById('circle1'),document.getElementById('circle2'),document.getElementById('circle3'),document.getElementById('circle4')];
+    const labels=[document.getElementById('label1'),document.getElementById('label2'),document.getElementById('label3'),document.getElementById('label4')];
+    const progressFill=document.getElementById('progress-fill');
+    function goToStep(n){
+      steps.forEach((s,i)=>s.classList.toggle('active',i===n-1));
+      circles.forEach((c,i)=>{ if(i<n-1){c.classList.add('completed'); c.innerHTML='✔'}else{c.classList.remove('completed'); c.innerHTML=(i+1)}; c.classList.toggle('active',i===n-1)});
+      labels.forEach((l,i)=>l.classList.toggle('active',i===n-1));
+      progressFill.style.width=((n-1)/(steps.length-1))*100+'%';
+      window.scrollTo({top:0,behavior:'smooth'});
+      if(n===3) renderOrderSummary();
+      if(n===4) confetti({particleCount:220,spread:100,origin:{y:0.6}});
+    }
+
+    function guardToDetails(){
+      if(cart.length===0){ alert('Please add at least one item to cart.'); return; }
+      goToStep(2);
+    }
+
+    // Floating cart
+    const cartBtn=document.getElementById('cart-btn');
+    const cartCount=document.getElementById('cart-count');
+    const cartPanel=document.getElementById('cart-panel');
+    const cartOverlay=document.getElementById('cart-overlay');
+    const closeCartBtn=document.getElementById('close-cart');
+    const cartItemsPanel=document.getElementById('cart-items-panel');
+    const cartSubtotalPanel=document.getElementById('cart-subtotal-panel');
+    const cartGstPanel=document.getElementById('cart-gst-panel');
+    const cartTotalPanel=document.getElementById('cart-total-panel');
+    function openCart(){ cartPanel.classList.remove('translate-x-full'); cartOverlay.classList.remove('hidden'); }
+    function closeCart(){ cartPanel.classList.add('translate-x-full'); cartOverlay.classList.add('hidden'); }
+    cartBtn.onclick=openCart; closeCartBtn.onclick=closeCart; cartOverlay.onclick=closeCart;
+
+    // Products
+    const groceryItems=[
+      {id:1,name:'Fresh Apples',price:120,img:'image/Fresh Apple.jpg',tag:'Crisp & Juicy'},
+      {id:2,name:'Organic Bananas',price:60,img:'image/Banana.jpg',tag:'Naturally Sweet'},
+      {id:3,name:'Farm Fresh Milk (1L)',price:75,img:'image/fresh milk.jpg',tag:'Pure & Creamy'},
+      {id:4,name:'Brown Bread',price:40,img:'image/bread.jpg',tag:'Wholesome & Soft'},
+      {id:5,name:'White Rice (1kg)',price:90,img:'image/rice.jpg',tag:'Premium Grains'},
+      {id:6,name:'Potatoes (1kg)',price:50,img:'image/potatoes.jpg',tag:'All-Rounder Veggie'},
+      {id:7,name:'Onions (1kg)',price:45,img:'image/onion.jpg',tag:'Daily Essential'},
+      {id:8,name:'Tomatoes (500g)',price:30,img:'image/tomatoes.jpg',tag:'Ripe & Red'},
+      {id:9,name:'Eggs (Dozen)',price:95,img:'image/eggs.jpg',tag:'Protein Rich'},
+      {id:10,name:'Cooking Oil (1L)',price:150,img:'image/cooking oil.jpg',tag:'Refined & Light'},
+      { id:11,name:'Butter',price:49,img:'image/butter.webp',tag:'salted'},
+      {id:12,name:'Paneer',price:130,img:'image/milk Paneer.jpg',tag:'High Protein'}
+    ];
+    const GST_RATE=0.18;
+    const productsSection=document.getElementById('products-section');
+    let cart=[];
+
+    function renderProducts(){
+      productsSection.innerHTML='';
+      groceryItems.forEach(item=>{
+        const el=document.createElement('div');
+        el.className='card animate__animated animate__zoomIn';
+        el.innerHTML=`
+          <img src="${item.img}" alt="${item.name}" class="w-full h-44 object-cover rounded-lg mb-4 shadow-md">
+          <h3 class="text-xl font-bold text-gray-900 tracking-wide mb-0.5">${item.name}</h3>
+          <p class="text-sm italic text-gray-500 mb-2">${item.tag}</p>
+          <p class="price font-extrabold text-lg mb-4">₹${item.price}</p>
+          <div class="flex items-center space-x-2">
+            <button onclick="addToCart(${item.id})" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg shadow">Add to Cart</button>
+          </div>
+        `;
+        productsSection.appendChild(el);
+      });
+    }
+
+    function addToCart(id){
+      const p=groceryItems.find(x=>x.id===id);
+      const ex=cart.find(x=>x.id===id);
+      if(ex) ex.quantity++; else cart.push({...p,quantity:1});
+      updateCart(); openCart();
+    }
+
+    function updateCart(){
+      // count
+      cartCount.textContent=cart.reduce((s,i)=>s+i.quantity,0);
+      // panel
+      cartItemsPanel.innerHTML='';
+      let subtotal=0;
+      cart.forEach(item=>{
+        subtotal+=item.price*item.quantity;
+        const row=document.createElement('div');
+        row.className='flex items-center bg-gray-100 p-2 rounded-md shadow-sm animate__animated animate__fadeInRight';
+        row.innerHTML=`
+          <img src="${item.img}" class="w-14 h-14 object-cover rounded mr-3 border">
+          <div class="flex-1">
+            <p class="font-semibold text-gray-800">${item.name}</p>
+            <p class="text-xs text-gray-600">₹${item.price} each</p>
+          </div>
+          <div class="flex items-center space-x-2">
+            <button onclick="decreaseQty(${item.id})" class="bg-gray-300 px-2 rounded hover:bg-gray-400">-</button>
+            <span class="font-semibold">${item.quantity}</span>
+            <button onclick="increaseQty(${item.id})" class="bg-gray-300 px-2 rounded hover:bg-gray-400">+</button>
+          </div>
+          <div class="text-right ml-3">
+            <p class="font-bold text-green-700">₹${item.price*item.quantity}</p>
+            <button onclick="removeItem(${item.id})" class="text-red-500 text-xs hover:underline">❌ Remove</button>
+          </div>
+        `;
+        cartItemsPanel.appendChild(row);
+      });
+      const gst=subtotal*GST_RATE;
+      const total=subtotal+gst;
+      cartSubtotalPanel.textContent='₹'+subtotal.toFixed(2);
+      cartGstPanel.textContent='₹'+gst.toFixed(2);
+      cartTotalPanel.textContent='₹'+total.toFixed(2);
+    }
+
+    function increaseQty(id){const p=cart.find(x=>x.id===id); if(p){p.quantity++; updateCart();}}
+    function decreaseQty(id){const p=cart.find(x=>x.id===id); if(p && p.quantity>1){p.quantity--;} else {cart=cart.filter(x=>x.id!==id);} updateCart();}
+    function removeItem(id){cart=cart.filter(x=>x.id!==id); updateCart();}
+
+    // Confirm step
+    function renderOrderSummary(){
+      const container=document.getElementById('order-summary');
+      container.innerHTML='';
+      let subtotal=0;
+      cart.forEach(item=>{
+        subtotal+=item.price*item.quantity;
+        const div=document.createElement('div');
+        div.className='flex items-center bg-white p-3 rounded shadow';
+        div.innerHTML=`
+          <img src="${item.img}" class="w-14 h-14 object-cover rounded mr-3 border">
+          <div class="flex-1">
+            <p class="font-semibold text-gray-800">${item.name}</p>
+            <p class="text-sm text-gray-600">x${item.quantity} • ₹${item.price} each</p>
+          </div>
+          <p class="font-bold text-green-700">₹${(item.price*item.quantity).toFixed(2)}</p>
+        `;
+        container.appendChild(div);
+      });
+      const gst=subtotal*GST_RATE, total=subtotal+gst;
+      document.getElementById('sum-subtotal').textContent='₹'+subtotal.toFixed(2);
+      document.getElementById('sum-gst').textContent='₹'+gst.toFixed(2);
+      document.getElementById('sum-total').textContent='₹'+total.toFixed(2);
+    }
+
+    // WhatsApp order
+    document.getElementById('place-order-btn').onclick=()=>{
+      if(cart.length===0){ alert('Your cart is empty.'); return; }
+      const name=document.getElementById('customer-name').value.trim();
+      const addr=document.getElementById('customer-address').value.trim();
+      const phone=document.getElementById('customer-phone').value.trim();
+      if(!name || !addr || !phone){ alert('Please fill all your details.'); return; }
+
+      let orderText='*Order Details:*\n';
+      cart.forEach(i=> orderText += `${i.name} x ${i.quantity} = ₹${(i.price*i.quantity).toFixed(2)}\n`);
+      const subtotal=cart.reduce((s,i)=>s+i.price*i.quantity,0);
+      const gst=subtotal*GST_RATE, total=subtotal+gst;
+      orderText+=`\nSubtotal: ₹${subtotal.toFixed(2)}\nGST: ₹${gst.toFixed(2)}\nTotal: ₹${total.toFixed(2)}\n\n`;
+      orderText+=`Customer: ${name}\n${addr}\n${phone}`;
+
+      // Your WhatsApp number +91 8050646336
+      const whatsappNumber='918050646336';
+      const link=`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(orderText)}`;
+
+      // open WhatsApp in a new tab (user gesture)
+      window.open(link,'_blank');
+
+      document.getElementById('success-name').innerText=name;
+      goToStep(4);
+    };
+
+    // init
+    renderProducts();
+  </script>
+</body>
+</html>
